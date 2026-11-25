@@ -403,6 +403,14 @@ export default function PostMediaCarousel({
             initialNumToRender={2}
             maxToRenderPerBatch={1}
             windowSize={3}
+            // Off, on every platform. Android's FlatList defaults it on, and
+            // it decides which slides are off screen from the strip's box —
+            // which starts at the default shape and resizes once the first
+            // photo says its own (adaptiveHeight). The first slide was judged
+            // clipped against the old box and left detached: black until a
+            // swipe away and back made the list look again. With windowSize 3
+            // there are never more than three slides mounted to detach anyway.
+            removeClippedSubviews={false}
             onMomentumScrollEnd={onMomentumEnd}
             // Only to learn which slide it's heading for — see adaptiveStyle.
             onScroll={adaptive ? onScroll : undefined}

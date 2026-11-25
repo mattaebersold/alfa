@@ -32,6 +32,20 @@ const FILENAME = 'nav-state.json';
  */
 const TRANSIENT_ROUTES = new Set(['Create', 'ListingCreate', 'DiecastCreate', 'CreateStory', 'StoryDetails']);
 
+/**
+ * Params that are an instruction to do something on arrival, not part of the
+ * place — dropped from what's kept, the way the home screen's `tab` is.
+ *
+ * HomeMessages' `messageId` plays that message the moment the list has it (a
+ * like or comment notification sends it). Kept, it replayed on every launch:
+ * the restored screen — even underneath another one — started the video, and
+ * on iOS a modal raised that early may never appear, so it was sound with
+ * nothing on screen.
+ */
+const ONE_SHOT_PARAMS: Record<string, string[]> = {
+  HomeMessages: ['messageId'],
+};
+
 function withoutTabRequests(state: any): any {
   if (!state || !Array.isArray(state.routes)) return state;
   const firstTransient = state.routes.findIndex((r: any) => TRANSIENT_ROUTES.has(r.name));
@@ -46,6 +60,12 @@ function withoutTabRequests(state: any): any {
       if (route.name === 'Feed' && route.params && ('tab' in route.params || 'at' in route.params)) {
         const { tab: _tab, at: _at, spotId: _spotId, ...rest } = route.params;
         next = { ...route, params: Object.keys(rest).length ? rest : undefined };
+      }
+      const oneShot = ONE_SHOT_PARAMS[route.name];
+      if (oneShot && next.params && oneShot.some((k) => k in next.params)) {
+        const rest = { ...next.params };
+        oneShot.forEach((k) => { delete rest[k]; });
+        next = { ...next, params: Object.keys(rest).length ? rest : undefined };
       }
       return next.state ? { ...next, state: withoutTabRequests(next.state) } : next;
     }),

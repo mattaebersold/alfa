@@ -1,4 +1,5 @@
 import type { AppStackParamList } from '../navigation/types';
+import { PRO_GAMES_SUB } from '../components/games/openDailyGames';
 
 export interface NotificationRef {
   type?: string;
@@ -65,6 +66,17 @@ export function notificationTarget(n: NotificationRef): NavTarget | null {
    */
   if (kind === 'garagecar' && meta.open === 'edit' && id) {
     return { name: 'CarCreate', params: { carId: id } };
+  }
+
+  /**
+   * "Today's Daily Games are up" — the 9am push to Pro members (horacio's
+   * helpers/proGamesReminder). PRO › Games, on the home screen.
+   */
+  if (n.type === 'pro_games_daily' || kind === 'pro_games') {
+    return {
+      name: 'MainTabs',
+      params: { screen: 'FeedTab', params: { screen: 'Feed', params: { tab: 'pro', sub: PRO_GAMES_SUB, at: Date.now() } } },
+    };
   }
 
   // A message points at a conversation, not at a record — and it's the only

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, FlatList, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
-import { useRoute, type RouteProp } from '@react-navigation/native';
+import { useIsFocused, useRoute, type RouteProp } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Polygon } from 'react-native-svg';
 import { Heart, MessageCircle } from 'lucide-react-native';
@@ -35,14 +35,21 @@ export default function HomeMessagesScreen() {
   const { data, isLoading, isError, isFetching, refetch } = useGetHomeMessagesQuery();
   const [watching, setWatching] = useState<HomeMessage | null>(null);
 
-  // Straight to the one a notification pointed at, once.
+  // Straight to the one a notification pointed at, once — and only while this
+  // screen is the one showing. A screen further down the stack (a restored
+  // launch, something opened over it) must never start a video by itself.
+  const focused = useIsFocused();
   const opened = useRef(false);
   const target = route.params?.messageId;
   useEffect(() => {
-    if (opened.current || !target || !data) return;
+    if (opened.current || !target || !data || !focused) return;
     const m = data.entries.find((e) => e.internal_id === target);
     if (m) { opened.current = true; setWatching(m); }
-  }, [data, target]);
+  }, [data, target, focused]);
+  // Covered by another screen: the video stops with it.
+  useEffect(() => {
+    if (!focused) setWatching(null);
+  }, [focused]);
 
   const entries = data?.entries ?? [];
 

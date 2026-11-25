@@ -49,10 +49,17 @@ export default function VideoViewer({
   comments: { documentId: string; entryType: string };
   children?: React.ReactNode;
 }) {
+  /**
+   * Whether the modal is actually on screen. Playback waits for it: iOS can
+   * decline to present a modal raised mid-launch or mid-transition, and a
+   * player started before that was sound with nothing to see or stop it.
+   */
+  const [shown, setShown] = useState(false);
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+    <Modal visible transparent animationType="fade" onRequestClose={onClose} onShow={() => setShown(true)} statusBarTranslucent>
       <PortalHost>
         <Viewer
+          shown={shown}
           playbackId={playbackId}
           fallbackAspect={fallbackAspect}
           onClose={onClose}
@@ -71,8 +78,8 @@ export default function VideoViewer({
 }
 
 function Viewer({
-  playbackId, fallbackAspect, onClose, onFirstPlay, eyebrow, title, description, actions, comments, children,
-}: React.ComponentProps<typeof VideoViewer> & { fallbackAspect: number }) {
+  shown, playbackId, fallbackAspect, onClose, onFirstPlay, eyebrow, title, description, actions, comments, children,
+}: React.ComponentProps<typeof VideoViewer> & { fallbackAspect: number; shown: boolean }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   /**
@@ -94,11 +101,17 @@ function Viewer({
     setTimeout(() => { viewRef.current?.enterFullscreen().catch(() => setSystemControls(false)); }, 60);
   };
 
-  // The tap that opened this was the request to play.
+  // The tap that opened this was the request to play — started once the
+  // modal is really up (`shown`), never before.
   const player = useVideoPlayer(muxHls(playbackId), (p) => {
     p.loop = false;
-    p.play();
   });
+  const started = useRef(false);
+  useEffect(() => {
+    if (!shown || started.current) return;
+    started.current = true;
+    player.play();
+  }, [shown, player]);
 
   /**
    * The true shape from the video's own thumbnail: Mux renders it the right
