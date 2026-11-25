@@ -10,7 +10,7 @@ import { formatActionCount } from '../../utils/text';
 import { colors } from '../../constants/colors';
 import { COMMON_RADIUS, COLOR_WHITE, SURFACE_MID, COLOR_GRAY_160 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
-import { muxPoster, formatDuration, type ProVideo } from '../../types/proVideos';
+import { muxPoster, formatDuration, formatViewCount, type ProVideo } from '../../types/proVideos';
 import type { ProVideoUpload } from '../../utils/proVideoUpload';
 
 /**
@@ -147,7 +147,7 @@ export default React.memo(function ProVideoCard({
         <View style={styles.metaRow}>
           {ready ? (
             <View style={styles.counts}>
-              <Count Icon={Eye} n={video.views} />
+              <Count Icon={Eye} n={video.views} format={formatViewCount} />
               <Count Icon={Heart} n={likes} />
               <Count Icon={MessageCircle} n={video.comment_count} />
               {video.bookmarked ? <Bookmark size={12} color={colors.pro} fill={colors.pro} /> : null}
@@ -159,12 +159,16 @@ export default React.memo(function ProVideoCard({
   );
 });
 
-function Count({ Icon, n }: { Icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>; n: number }) {
+function Count({ Icon, n, format = formatActionCount }: {
+  Icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
+  n: number;
+  format?: (n: number) => string;
+}) {
   if (!n) return null;
   return (
     <View style={styles.count}>
       <Icon size={12} color={COLOR_WHITE} strokeWidth={2.2} />
-      <Text style={styles.countText}>{formatActionCount(n)}</Text>
+      <Text style={styles.countText}>{format(n)}</Text>
     </View>
   );
 }

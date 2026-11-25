@@ -125,17 +125,20 @@ export function AuctionResult({ auction }: { auction: SpotDayAuction }) {
   );
 }
 
-function GameCard({ game, them, me, theirName }: {
+function GameCard({ game, them, me, theirName, self = false }: {
   game: (typeof SPOT_GAMES)[number];
   them: SpotDayGames; me: SpotDayGames;
   theirName: string;
+  /** Your own day: one line per game, nobody to beat. */
+  self?: boolean;
 }) {
   const colors = useColors();
   const k = game.key;
 
   let winner: 'me' | 'them' | null = null;
-  if (k === 'car' && them.car && me.car) winner = winnerOf(carGame(me.car), carGame(them.car));
-  if (k === 'auction' && them.auction && me.auction) winner = auctionWinner(me.auction, them.auction);
+  // Your own day has no one to beat.
+  if (!self && k === 'car' && them.car && me.car) winner = winnerOf(carGame(me.car), carGame(them.car));
+  if (!self && k === 'auction' && them.auction && me.auction) winner = auctionWinner(me.auction, them.auction);
 
   const result = (day: SpotDayGames) => (
     k === 'car' ? (day.car ? <CarResult car={day.car} /> : null)
@@ -160,7 +163,7 @@ function GameCard({ game, them, me, theirName }: {
         {result(them)}
       </PlayerLine>
 
-      {iPlayed ? (
+      {self ? null : iPlayed ? (
         <PlayerLine label="You" crowned={winner === 'me'}>{result(me)}</PlayerLine>
       ) : (
         <View style={styles.playRow}><PlayButton game={game} /></View>
@@ -179,9 +182,11 @@ function GameCard({ game, them, me, theirName }: {
  * Spoiler-free like a shared result: no puzzle photo, no auction listing, no
  * trivia answer — only how each of you did.
  */
-export default function SpotDaySummaryModal({ player, me, onClose, origin }: {
+export default function SpotDaySummaryModal({ player, me, onClose, origin, self = false }: {
   player: SpotFeedToday['players'][number] | null;
   me: SpotDayGames | null;
+  /** The card is your own — your day on its own, not against yourself. */
+  self?: boolean;
   onClose: () => void;
   origin?: SummaryOrigin | null;
 }) {
@@ -202,7 +207,7 @@ export default function SpotDaySummaryModal({ player, me, onClose, origin }: {
             <View style={styles.headText}>
               <Text style={[styles.name, { color: colors.fg }]} numberOfLines={1}>{name}</Text>
               <Text style={[styles.sub, { color: colors.muted }]} numberOfLines={2}>
-                played the Daily Games today
+                {self ? 'You played the Daily Games today' : 'played the Daily Games today'}
               </Text>
             </View>
           </View>
@@ -210,7 +215,7 @@ export default function SpotDaySummaryModal({ player, me, onClose, origin }: {
           {/* Only the games they played — a game they skipped has nothing of
               theirs to compare against. */}
           {SPOT_GAMES.filter((g) => fillOf(g.key, player) != null).map((g) => (
-            <GameCard key={g.key} game={g} them={player} me={mine} theirName={shortName} />
+            <GameCard key={g.key} game={g} them={player} me={mine} theirName={shortName} self={self} />
           ))}
 
         </View>

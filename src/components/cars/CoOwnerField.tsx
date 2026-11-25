@@ -4,7 +4,7 @@ import { UserPlus, X } from 'lucide-react-native';
 import { Text } from '../../theme/Text';
 import FormInput from '../ui/FormInput';
 import UserByline from '../members/UserByline';
-import { useSearchQuery, useGetUserByIdQuery } from '../../api/apiService';
+import { useSearchUsersQuery, useGetUserByIdQuery } from '../../api/apiService';
 import { useDebounced } from '../../hooks/useDebounced';
 import { useColors } from '../../hooks/useColors';
 import { useAppSelector } from '../../store/store';
@@ -41,8 +41,10 @@ export default function CoOwnerField({ value, onChange, initial }: {
   const { data: fetched } = useGetUserByIdQuery(value, { skip: !value || !!known });
   const person = known ?? (fetched?.user_id === value ? fetched : null);
 
-  const { data: results, isFetching } = useSearchQuery(settled, { skip: !!value || settled.length < MIN_QUERY });
-  const matches: User[] = ((results?.users ?? []) as User[])
+  // The member search, ranked (exact username first) — not the app-wide
+  // search, whose alphabetical list let "Ae86Matt" crowd out "matt".
+  const { data: results, isFetching } = useSearchUsersQuery(settled, { skip: !!value || settled.length < MIN_QUERY });
+  const matches: User[] = ((results?.entries ?? []) as User[])
     .filter((u) => u.user_id && u.user_id !== me)
     .slice(0, MAX_MATCHES);
   const open = !value && settled.length >= MIN_QUERY && query.trim().length >= MIN_QUERY;

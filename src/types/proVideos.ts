@@ -128,6 +128,17 @@ export function formatDuration(secs: number | null | undefined): string {
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${r}` : `${m}:${r}`;
 }
 
+/**
+ * A view count as a card shows it — 128, 1.2K, 3.4M. Not formatActionCount,
+ * whose "9+" suits a like count on a post but would hide how far a video went.
+ */
+export function formatViewCount(n: number | null | undefined): string {
+  const v = Math.max(0, Math.floor(n ?? 0));
+  if (v >= 1e6) return `${(v / 1e6).toFixed(1).replace(/\.0$/, '')}M`;
+  if (v >= 1e3) return `${(v / 1e3).toFixed(1).replace(/\.0$/, '')}K`;
+  return String(v);
+}
+
 /** Bytes, as a person reads them — "12.4 GB", "850 MB". */
 export function formatBytes(n: number): string {
   if (n >= 1024 ** 3) return `${(n / 1024 ** 3).toFixed(1)} GB`;

@@ -21,6 +21,7 @@ import type {
   AuctionToday, AuctionDay, AuctionDaysPage, AuctionPlay, AuctionStats, AuctionLeaderboard, LeaderboardPeriod,
 } from '../types/games';
 import type { ProVideo, ProVideoMeta, ProVideoPage, ProVideoListParams, ProVideoFields } from '../types/proVideos';
+import type { MarketplaceFindPage } from '../types/finds';
 import { carScopeKey } from '../utils/carScope';
 
 /** GET api/pro/home — see getProHome. */
@@ -182,6 +183,8 @@ export const apiService = createApi({
     'CarGame', 'AuctionGame',
     /** Pro videos: one per video by id, and 'LIST' for every page of every filter. */
     'ProVideo',
+    /** Marketplace finds (PRO › Marketplace › Finds): 'LIST'. */
+    'MarketplaceFind',
     /** Home messages: 'CURRENT' (the banner's), 'LIST', and one per message by id. */
     'HomeMessage',
   ],
@@ -3279,6 +3282,26 @@ export const apiService = createApi({
       providesTags: ['GarageCar', 'Cars'],
     }),
 
+    // ── Marketplace finds ───────────────────────────────────────────────────
+    // Facebook Marketplace links shared in from a phone. Sending them isn't
+    // the app's job (a share-menu shortcut does it, with a key) — only the feed.
+
+    /** PRO › Marketplace › Finds, newest share first, a page at a time (from 0). */
+    getMarketplaceFinds: builder.infiniteQuery<MarketplaceFindPage, void, number>({
+      infiniteQueryOptions: {
+        initialPageParam: 0,
+        getNextPageParam: (lastPage, _all, lastPageNo) => (lastPage.has_more ? lastPageNo + 1 : undefined),
+      },
+      query: ({ pageParam }) => ({ url: 'api/finds', params: { page: pageParam } }),
+      providesTags: [{ type: 'MarketplaceFind', id: 'LIST' }],
+    }),
+
+    /** Admins only — taking one down. */
+    deleteMarketplaceFind: builder.mutation<{ ok: boolean }, string>({
+      query: (id) => ({ url: `api/finds/${encodeURIComponent(id)}`, method: 'DELETE' }),
+      invalidatesTags: [{ type: 'MarketplaceFind', id: 'LIST' }],
+    }),
+
     // ── Pro videos ──────────────────────────────────────────────────────────
     // The upload itself isn't here — it's a long-running job that outlives
     // any screen, in utils/proVideoUpload. These are the reads and the edits.
@@ -3897,6 +3920,9 @@ export const {
   useGetProPostsQuery,
   useGetProCarsQuery,
   useSearchProMembersQuery,
+  // Marketplace finds
+  useGetMarketplaceFindsInfiniteQuery,
+  useDeleteMarketplaceFindMutation,
   // Pro videos
   useGetProVideoMetaQuery,
   useGetProVideosInfiniteQuery,

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Open Road Society",
     "slug": "alfa",
-    "version": "1.90.3",
+    "version": "1.90.4",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",

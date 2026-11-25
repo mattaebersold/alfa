@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import ProVideoStack from '../../videos/ProVideoStack';
-import ProSubTabs from '../ProSubTabs';
 import ProVideoFilters, { type VideoPanelFilters } from '../../videos/ProVideoFilters';
 import ProVideoUploadBanner from '../../videos/ProVideoUploadBanner';
 import ProVideoDetailsSheet from '../../videos/ProVideoDetailsSheet';
@@ -112,8 +111,6 @@ export default function VideosScreen({ headerPad, onScroll, bottomPad }: Section
 
   const header = (
     <View onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}>
-      {/* PRO's options, scrolling away with the page. */}
-      <ProSubTabs />
       <ProVideoFilters
         meta={meta}
         search={search}

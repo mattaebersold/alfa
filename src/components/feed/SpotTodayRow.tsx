@@ -14,6 +14,7 @@ import { HIT, MISS } from './SpotResultBody';
 import { useColors } from '../../hooks/useColors';
 import { useGetSpotFeedTodayQuery } from '../../api/apiService';
 import { useIsPro } from '../../hooks/useBrandColor';
+import { useAppSelector } from '../../store/store';
 import { openDailyGames } from '../games/openDailyGames';
 import { imageUrl } from '../../utils/image';
 import {
@@ -49,8 +50,10 @@ function chipColor(game: SpotGameKind, day: SpotDayGames): string | null {
  * they played as chips — green or red — and their name.
  * The events carousel's card, so the two rows read as the same kind of thing.
  */
-function PlayerCard({ player, onPress, full = false }: {
+function PlayerCard({ player, onPress, full = false, self = false }: {
   player: Player;
+  /** Your own card — said so to a screen reader. */
+  self?: boolean;
   onPress: (origin: SummaryOrigin | null) => void;
   /** Across the row rather than a carousel card's width — the only one today. */
   full?: boolean;
@@ -75,7 +78,7 @@ function PlayerCard({ player, onPress, full = false }: {
     <SummaryTouchable
       style={[styles.card, full ? styles.cardFull : { width: UPCOMING_CARD_WIDTH }]}
       onPress={onPress}
-      accessibilityLabel={`${user.username} played the Daily Games today`}
+      accessibilityLabel={self ? 'You played the Daily Games today' : `${user.username} played the Daily Games today`}
     >
       <View style={styles.thumb}>
         {photo ? (
@@ -101,7 +104,10 @@ function PlayerCard({ player, onPress, full = false }: {
 
 /**
  * The top of the home feed: the Pro members who've played the PRO tab's
- * Daily Games today, one card each, opening their day against yours.
+ * Daily Games today, one card each, opening their day against yours —
+ * yours among them, first, once you've played (it opens your day alone).
+ * The server leaves you out of `players` and sends your day as `me`, so
+ * your card is made here from that and your own profile.
  *
  * Pro members only, like the games — nothing at all for anyone else, and the
  * server only answers a Pro member. Today only (yesterday's players are gone
@@ -112,7 +118,8 @@ export default function SpotTodayRow() {
   const colors = useColors();
   const isPro = useIsPro();
   const { data, refetch } = useGetSpotFeedTodayQuery(undefined, { skip: !isPro });
-  const [open, setOpen] = useState<{ player: Player; origin: SummaryOrigin | null } | null>(null);
+  const myself = useAppSelector((s) => s.auth.userInfo);
+  const [open, setOpen] = useState<{ player: Player; origin: SummaryOrigin | null; self?: boolean } | null>(null);
 
   useFocusEffect(useCallback(() => { if (isPro) refetch(); }, [isPro, refetch]));
 
@@ -120,7 +127,14 @@ export default function SpotTodayRow() {
   const played = !!(data?.me?.car || data?.me?.auction);
   const cta = !played ? { label: 'Play', onPress: openDailyGames } : null;
 
-  const players = data?.players ?? [];
+  // Your card, first, once you've played — the others' day is what they
+  // played, and yours belongs in the row with it.
+  const mine: Player | null = played && myself && data?.me
+    ? { user: myself, ...data.me, played_at: null }
+    : null;
+  const others = data?.players ?? [];
+  const players = mine ? [mine, ...others.filter((p) => p.user.user_id !== mine.user.user_id)] : others;
+  const isMine = (p: Player) => p === mine;
   if (!isPro || !players.length) return null;
 
   return (
@@ -153,7 +167,7 @@ export default function SpotTodayRow() {
           most of the row empty beside it, and nothing to scroll to. */}
       {players.length === 1 ? (
         <View style={styles.single}>
-          <PlayerCard full player={players[0]} onPress={(origin) => setOpen({ player: players[0], origin })} />
+          <PlayerCard full self={isMine(players[0])} player={players[0]} onPress={(origin) => setOpen({ player: players[0], origin, self: isMine(players[0]) })} />
         </View>
       ) : (
         <ScrollView
@@ -165,7 +179,7 @@ export default function SpotTodayRow() {
           decelerationRate="fast"
         >
           {players.map((p) => (
-            <PlayerCard key={p.user.user_id} player={p} onPress={(origin) => setOpen({ player: p, origin })} />
+            <PlayerCard key={p.user.user_id} self={isMine(p)} player={p} onPress={(origin) => setOpen({ player: p, origin, self: isMine(p) })} />
           ))}
           <RowEndSpacer />
         </ScrollView>
@@ -174,6 +188,7 @@ export default function SpotTodayRow() {
       <SpotDaySummaryModal
         player={open?.player ?? null}
         me={data?.me ?? null}
+        self={!!open?.self}
         origin={open?.origin}
         onClose={() => setOpen(null)}
       />

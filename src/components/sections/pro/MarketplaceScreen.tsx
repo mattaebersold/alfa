@@ -4,7 +4,6 @@ import MarketplaceBrowse from '../../marketplace/MarketplaceBrowse';
 import { TABS_STUCK_RISE } from '../../ui/AppHeader';
 import { headerBottom } from '../../../hooks/useHeaderScroll';
 import type { SectionScreenProps } from '../types';
-import ProSubTabs from '../ProSubTabs';
 
 /**
  * PRO › Marketplace — the marketplace lives under PRO now, not in the
@@ -29,8 +28,6 @@ export default function MarketplaceScreen({ headerPad, onScroll, bottomPad }: Se
       onScroll={onScroll}
       contentContainerStyle={contentStyle}
       stickyTop={stickyTop}
-      // PRO's options, scrolling away with the page.
-      top={<ProSubTabs />}
     />
   );
 }

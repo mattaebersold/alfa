@@ -8,7 +8,6 @@ import NewProVideosShelf from '../../videos/NewProVideosShelf';
 import ProMembersRow from '../../pro/ProMembersRow';
 import ProSectionTitle from '../../pro/ProSectionTitle';
 import ProViewAllPane from '../../pro/ProViewAllPane';
-import ProSubTabs from '../ProSubTabs';
 import { Gamepad2, MessageSquare, Car } from 'lucide-react-native';
 import CarPosterCard from '../../cards/CarPosterCard';
 import FeedItemCard from '../../cards/FeedItemCard';
@@ -116,9 +115,6 @@ export default function ProHomeScreen({ scrollRef, headerPad, onScroll, bottomPa
         scrollEventThrottle={16}
         refreshControl={refreshControl}
       >
-        {/* PRO's options, scrolling away with the page. */}
-        <ProSubTabs />
-
         {/* 1. Today's Daily Games. */}
         <DailyGamesCard statuses={[car, auction]} />
 

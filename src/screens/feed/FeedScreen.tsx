@@ -47,7 +47,6 @@ import { ss } from '../../styles/shared';
 import { GUTTER } from '../../constants/config';
 import { recordFeedTab } from '../../utils/screenViews';
 import { SECTION_SUBS, type SectionSub } from '../../components/sections';
-import { ProSubTabsContext } from '../../components/sections/ProSubTabs';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -154,6 +153,8 @@ export default function FeedScreen() {
   const headerPad = useHeaderPad({ tabs: true });
   /** A section's panes sit lower: its options open in a row under the tabs. */
   const sectionPad = useHeaderPad({ tabs: true, subTabs: true });
+  /** PRO's panes sit lower still: its options are a contained track, taller than a section's. */
+  const proPad = useHeaderPad({ tabs: true, proSubTabs: true });
   /**
    * The home message banner's room, when there's one to show: between the
    * header's buttons and its tabs, on the feed only, and only at its top —
@@ -170,7 +171,7 @@ export default function FeedScreen() {
   const onGroupsScroll = useHeaderScroll(headerPad);
   const onCarsScroll = useHeaderScroll(sectionPad);
   const onMembersScroll = useHeaderScroll(sectionPad);
-  const onProScroll = useHeaderScroll(sectionPad);
+  const onProScroll = useHeaderScroll(proPad);
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
   /** Pro members' PRO tab is Home with its options row (Videos, Games, Marketplace); everyone else's is the sign-up. */
@@ -361,10 +362,6 @@ export default function FeedScreen() {
       ...(SECTION_SUBS[tab] ?? []).map((s) => ({ key: s.key, label: s.label, Icon: s.Icon })),
     ];
   }, [tab, isPro]);
-  /** PRO's options, for the row at the top of each PRO pane (ProSubTabs). */
-  const proSubTabs = useMemo(() => (tab === 'pro' && subTabs
-    ? { tabs: subTabs, value: sub ?? LANDING, onChange: (k: string) => onSubTabRef.current(k) }
-    : null), [tab, subTabs, sub]);
   // Pro lapsed while on one of PRO's options: back to its landing, which is now the sign-up page.
   useEffect(() => {
     if (!isPro && tab === 'pro' && sub !== null) setSub(null);
@@ -507,15 +504,16 @@ export default function FeedScreen() {
   }, [blockedData, dispatch]);
 
   return (
-    <ProSubTabsContext.Provider value={proSubTabs}>
     <SafeAreaView style={ss.fill} edges={[]}>
       <AppHeader
         tabs={FEED_TABS}
         activeTab={tab}
         onTabPress={selectTab}
-        // PRO's options aren't in the header: they're the first row of each
-        // PRO pane's content (ProSubTabs), scrolling away with it.
-        subTabs={tab === 'pro' ? undefined : subTabs}
+        // PRO's options ride in the header like every section's — one row
+        // for all of PRO's screens, so moving between them slides the thumb
+        // instead of redrawing the row — drawn as a contained track.
+        subTabs={subTabs}
+        proSubTabs={tab === 'pro'}
         activeSubTab={sub ?? LANDING}
         onSubTabPress={onSubTab}
         // Events' Add New, after its options rather than on the page.
@@ -553,7 +551,7 @@ export default function FeedScreen() {
             // Home: today's Daily Games, the Pro group, Pro members' posts
             // and cars — under the options row, so it starts where the
             // other sections' panes do.
-            <ProHomeScreen scrollRef={proScrollRef} headerPad={headerPad} bottomPad={bottomPad} onScroll={gated.pro} active={landing('pro')} />
+            <ProHomeScreen scrollRef={proScrollRef} headerPad={proPad} bottomPad={bottomPad} onScroll={gated.pro} active={landing('pro')} />
           ) : (
             <ProPane scrollRef={proScrollRef} headerPad={headerPad} bottomPad={bottomPad} />
           )}
@@ -644,8 +642,8 @@ export default function FeedScreen() {
           <SubPane
             key={id}
             sub={s}
-            // PRO's options ride in its panes' content, not the header — less to clear.
-            headerPad={section === 'pro' ? headerPad : sectionPad}
+            // Clear of the header's options row — PRO's is the taller one.
+            headerPad={section === 'pro' ? proPad : sectionPad}
             bottomPad={bottomPad}
             active={tab === section && sub === s.key}
           />
@@ -653,7 +651,6 @@ export default function FeedScreen() {
       }))}
       </View>
     </SafeAreaView>
-    </ProSubTabsContext.Provider>
   );
 }
 

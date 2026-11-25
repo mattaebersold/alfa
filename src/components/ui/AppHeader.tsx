@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, StatusBar, Image, Animated, Easing, Platform, type StyleProp, type ViewStyle } from 'react-native';
 import Reanimated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { Text } from '../../theme/Text';
@@ -130,9 +130,15 @@ export const APP_HEADER_HEIGHT = BTN + TOP_OFFSET + ROW_PAD_V;
  * the floating buttons. The bar is an absolute overlay and reserves no layout
  * space, so content scrolls up underneath it.
  */
-export function useHeaderPad({ tabs = false, subTabs = false }: { tabs?: boolean; subTabs?: boolean } = {}): number {
+export function useHeaderPad({ tabs = false, subTabs = false, proSubTabs = false }: {
+  tabs?: boolean;
+  subTabs?: boolean;
+  /** PRO's options row, which is taller than a section's — see PRO_SUB_TABS_HEIGHT. */
+  proSubTabs?: boolean;
+} = {}): number {
   const insets = useSafeAreaInsets();
-  return insets.top + APP_HEADER_HEIGHT + (tabs ? HEADER_TABS_HEIGHT : 0) + (subTabs ? HEADER_SUB_TABS_HEIGHT : 0);
+  return insets.top + APP_HEADER_HEIGHT + (tabs ? HEADER_TABS_HEIGHT : 0)
+    + (proSubTabs ? PRO_SUB_TABS_HEIGHT : subTabs ? HEADER_SUB_TABS_HEIGHT : 0);
 }
 
 /** Extra room between the button row and the tab row under it. */
@@ -152,6 +158,11 @@ const SUB_TAB_H = UNDERLINE_TABS_H;
  * sits under them pads with `useHeaderPad({ tabs: true, subTabs: true })`.
  */
 export const HEADER_SUB_TABS_HEIGHT = SUB_TAB_H;
+/**
+ * PRO's options instead: a contained track like the main row's (MainTabs,
+ * dense) rather than plain labels, so a little taller, with room under it.
+ */
+export const PRO_SUB_TABS_HEIGHT = DENSE_TRACK_H + 8;
 
 /** One entry in the header's tab row — see MainTabs. */
 export type HeaderTab = MainTab;
@@ -219,8 +230,10 @@ function HeaderGround({ height, inset = 0 }: { height: number; inset?: number })
   );
 }
 
-function HeaderTabs({ tabs, activeTab, onTabPress, subTabs, activeSubTab, onSubTabPress, subTabsAction, top, inset = 0 }: {
+function HeaderTabs({ tabs, activeTab, onTabPress, subTabs, activeSubTab, onSubTabPress, subTabsAction, proSubTabs = false, top, inset = 0 }: {
   tabs: HeaderTab[];
+  /** Draw the options as PRO's contained track — see ProTabsRow. */
+  proSubTabs?: boolean;
   activeTab?: string;
   onTabPress?: (key: string) => void;
   subTabs?: HeaderTab[];
@@ -256,7 +269,7 @@ function HeaderTabs({ tabs, activeTab, onTabPress, subTabs, activeSubTab, onSubT
   const lift = inset ? Animated.add(headerLift, collapseLift(inset)) : headerLift;
 
   return (
-    <Animated.View style={[styles.tabs, subTabs?.length ? styles.tabsWithSubs : null, { top, transform: [{ translateY: lift }] }]}>
+    <Animated.View style={[styles.tabs, subTabs?.length ? (proSubTabs ? styles.tabsWithProSubs : styles.tabsWithSubs) : null, { top, transform: [{ translateY: lift }] }]}>
       {/* The pills are MainTabs. What's the header's own is how the row
           rides it: as the row sticks it only moves up — same size, same
           horizontal place, flush with the header's buttons. */}
@@ -286,7 +299,11 @@ function HeaderTabs({ tabs, activeTab, onTabPress, subTabs, activeSubTab, onSubT
         compactFrom={0}
         contentContainerStyle={styles.tabsRow}
       />
-      {subTabs?.length ? (
+      {subTabs?.length && proSubTabs ? (
+        // PRO's options: one row for all of PRO's screens, so switching
+        // between them slides the thumb rather than redrawing the row.
+        <ProTabsRow tabs={subTabs} value={activeSubTab} onChange={onSubTabPress} />
+      ) : subTabs?.length ? (
         <SubTabsRow
           // Keyed on the set of options, so moving to another section fades
           // its options in fresh rather than swapping labels in place.
@@ -319,6 +336,37 @@ function SubTabsRow({ tabs, value, onChange, action }: {
       {/* The first label lines up with the inside of the main row's track
           (its 4pt padding past the gutter), plus a little. */}
       <UnderlineTabs tabs={tabs} value={value} onChange={onChange} action={action} inset={GUTTER + 4 + 6} />
+    </Reanimated.View>
+  );
+}
+
+/**
+ * PRO's options, under the main tabs: the main row's own contained track at
+ * the same gutters, the tabs scrolling inside it once they run past it. The
+ * picked one on a Pro-red thumb, lettered black, sliding to it; the rest in
+ * the Pro red, so the row reads as PRO's. Labels only.
+ */
+function ProTabsRow({ tabs, value, onChange }: {
+  tabs: HeaderTab[];
+  value?: string;
+  onChange?: (key: string) => void;
+}) {
+  const plain = useMemo(() => tabs.map(({ key, label }) => ({ key, label })), [tabs]);
+  return (
+    <Reanimated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(120)} style={styles.proSubRow}>
+      <MainTabs
+        tabs={plain}
+        value={value}
+        onChange={onChange}
+        inset={TABS_START_PAD}
+        trackColor={SURFACE_BLACK}
+        thumbColor={colors.pro}
+        thumbTextColor={COLOR_BLACK}
+        idleColor={colors.pro}
+        dense
+        contained
+        compactFrom={0}
+      />
     </Reanimated.View>
   );
 }
@@ -410,6 +458,8 @@ interface AppHeaderProps {
   onSubTabPress?: (key: string) => void;
   /** An action at the end of the options — Events' Add New. */
   subTabsAction?: SubTabsAction;
+  /** The options are PRO's: drawn as a contained track (ProTabsRow), a little taller. */
+  proSubTabs?: boolean;
   /**
    * What the logo does on a screen that's already where it leads — the home
    * feed refreshing itself. Left out, the logo goes to the home feed.
@@ -424,7 +474,9 @@ interface AppHeaderProps {
   homeMessage?: boolean;
 }
 
-export default function AppHeader({ spacer, tabs, activeTab, onTabPress, subTabs, activeSubTab, onSubTabPress, subTabsAction, onLogoPress, homeMessage = false }: AppHeaderProps = {}) {
+export default function AppHeader({ spacer, tabs, activeTab, onTabPress, subTabs, activeSubTab, onSubTabPress, subTabsAction, proSubTabs = false, onLogoPress, homeMessage = false }: AppHeaderProps = {}) {
+  /** How much the options row adds under the tabs, when there is one. */
+  const subRowH = subTabs?.length ? (proSubTabs ? PRO_SUB_TABS_HEIGHT : HEADER_SUB_TABS_HEIGHT) : 0;
   // Room for the home message banner, when this header shows one and there is one.
   const messageInset = useHomeMessageInset(homeMessage);
   const badge = useCountBadge();
@@ -539,11 +591,11 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, subTabs
       {/* The bar is transparent, so the status bar shows the screen behind it. */}
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      {spacer && <View style={{ height: insets.top + APP_HEADER_HEIGHT + messageInset + (tabs?.length ? HEADER_TABS_HEIGHT : 0) + (tabs?.length && subTabs?.length ? HEADER_SUB_TABS_HEIGHT : 0) }} />}
+      {spacer && <View style={{ height: insets.top + APP_HEADER_HEIGHT + messageInset + (tabs?.length ? HEADER_TABS_HEIGHT : 0) + (tabs?.length ? subRowH : 0) }} />}
 
       {tabs?.length ? (
         <HeaderGround
-          height={insets.top + APP_HEADER_HEIGHT + messageInset + HEADER_TABS_HEIGHT + (subTabs?.length ? HEADER_SUB_TABS_HEIGHT : 0)}
+          height={insets.top + APP_HEADER_HEIGHT + messageInset + HEADER_TABS_HEIGHT + subRowH}
           inset={messageInset}
         />
       ) : null}
@@ -748,6 +800,7 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, subTabs
           activeSubTab={activeSubTab}
           onSubTabPress={onSubTabPress}
           subTabsAction={subTabsAction}
+          proSubTabs={proSubTabs}
           top={insets.top + APP_HEADER_HEIGHT + messageInset}
           inset={messageInset}
         />
@@ -806,8 +859,11 @@ const styles = StyleSheet.create({
   },
   // Grown to hold the section's options beneath the main row.
   tabsWithSubs: { height: HEADER_TABS_HEIGHT + HEADER_SUB_TABS_HEIGHT },
+  tabsWithProSubs: { height: HEADER_TABS_HEIGHT + PRO_SUB_TABS_HEIGHT },
   // Full width, black, flush under the main row.
   subRow: { height: HEADER_SUB_TABS_HEIGHT },
+  // PRO's track, with a little room above it and the rest below.
+  proSubRow: { height: PRO_SUB_TABS_HEIGHT, paddingTop: 2 },
   // Under the scrim and the buttons, over the screen's content.
   ground: { position: 'absolute', left: 0, right: 0, zIndex: 18 },
   // MainTabs' row, with the header's own room at the end and below.

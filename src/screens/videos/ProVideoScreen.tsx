@@ -26,7 +26,7 @@ import { formatActionCount } from '../../utils/text';
 import { colors } from '../../constants/colors';
 import { APP_BG, COLOR_BLACK, COLOR_GRAY_160, COLOR_WHITE, GUTTER, SURFACE_MID, PILL_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
-import { aspectOf, formatDuration, muxHls, type ProVideo } from '../../types/proVideos';
+import { aspectOf, formatDuration, formatViewCount, muxHls, type ProVideo } from '../../types/proVideos';
 import type { FeedStackParamList } from '../../navigation/types';
 
 /** The entry type likes and comments on a Pro video are filed under (horacio's contentRef). */
@@ -139,7 +139,7 @@ function Player({ video }: { video: ProVideo }) {
   const car = [video.year, video.make, video.model].filter(Boolean).join(' ');
   const when = video.ready_at ?? video.created_at;
   const meta1 = [
-    `${formatActionCount(video.views)} view${video.views === 1 ? '' : 's'}`,
+    `${formatViewCount(video.views)} view${video.views === 1 ? '' : 's'}`,
     when ? formatDistanceToNow(new Date(when), { addSuffix: true }) : null,
     formatDuration(video.duration),
   ].filter(Boolean).join(' · ');

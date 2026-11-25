@@ -1,12 +1,13 @@
-import { Clapperboard, Gamepad2, ShoppingBag } from 'lucide-react-native';
+import { Binoculars, Clapperboard, Gamepad2, ShoppingBag } from 'lucide-react-native';
 import type { SectionSub } from './types';
 import VideosScreen from './pro/VideosScreen';
 import GamesScreen from './pro/GamesScreen';
 import MarketplaceScreen from './pro/MarketplaceScreen';
+import FindsScreen from './pro/FindsScreen';
 import { PRO_GAMES_SUB } from '../games/openDailyGames';
 
 /**
- * PRO › Videos, Games, Marketplace — after its landing, Home (ProHomeScreen:
+ * PRO › Videos, Games, Finds, Marketplace — after its landing, Home (ProHomeScreen:
  * today's Daily Games, the Pro group, Pro members' posts and cars). Pro members only: for everyone else the PRO
  * tab is the sign-up page, with no options row (see FeedScreen).
  *
@@ -16,6 +17,9 @@ import { PRO_GAMES_SUB } from '../games/openDailyGames';
 export const PRO_SUBS: SectionSub[] = [
   { key: 'videos', label: 'Videos', Icon: Clapperboard, Component: VideosScreen },
   { key: PRO_GAMES_SUB, label: 'Games', Icon: Gamepad2, Component: GamesScreen },
+  // Facebook Marketplace listings shared in from outside — not ORS's own
+  // listings, so a name of its own rather than a Marketplace tab.
+  { key: 'finds', label: 'Finds', Icon: Binoculars, Component: FindsScreen },
   // The marketplace's home now — it's out of the header's main row and the menu.
   { key: 'market', label: 'Marketplace', Icon: ShoppingBag, Component: MarketplaceScreen },
 ];
