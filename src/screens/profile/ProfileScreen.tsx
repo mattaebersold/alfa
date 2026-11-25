@@ -646,6 +646,11 @@ export default function ProfileScreen() {
   const { data: followersData, isLoading: followersLoading } = useGetUserFollowersQuery({ userId, limit: 50 }, { skip: !userId });
   const { data: followingData, isLoading: followingLoading } = useGetUserFollowingQuery({ userId, limit: 50 }, { skip: !userId });
 
+  // ── Section sub tabs — see useSectionTabs ──────────────────────────────
+  // Above the loading return: a hook called after it ran on the loaded render
+  // only, and React threw "Rendered more hooks than during the previous render".
+  const sectionTabs = useSectionTabs({ sections: PAGE_SECTIONS, scrollRef, headerPad: insets.top + APP_HEADER_HEIGHT });
+
   // The page's shape in grey while the person loads — the banner, the photo,
   // the name, the pills, a card — rather than a spinner in a void.
   if (isLoading || !user) {
@@ -773,9 +778,6 @@ export default function ProfileScreen() {
   // ── Top chrome ─────────────────────────────────────────────────────────────
   // Identical chrome whether it's your profile or someone else's — the back
   // chevron is replaced by the header's own navigation (plus swipe-back).
-  // ── Section sub tabs — see useSectionTabs ──────────────────────────────
-  const sectionTabs = useSectionTabs({ sections: PAGE_SECTIONS, scrollRef, headerPad: insets.top + APP_HEADER_HEIGHT });
-
   const topBar = <AppHeader />;
 
   // ── Section tiles — tap to open a modal with that section's content ───────

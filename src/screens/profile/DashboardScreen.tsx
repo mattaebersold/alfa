@@ -540,20 +540,11 @@ export default function DashboardScreen({ onClose }: { onClose?: () => void } = 
   const [removeContent] = useRemoveContentMutation();
   const [restoreContent] = useRestoreContentMutation();
 
-  if (isLoading) return <Spinner fullScreen />;
-  if (!user) return null;
-
-  const cars = garageData?.entries ?? [];
-  const atCarLimit = garageFull(isPro, cars.length);
+  // Every hook above the returns below — called after them, the loading
+  // render ran fewer hooks than the loaded one and React threw "Rendered more
+  // hooks than during the previous render".
   const [upsell, setUpsell] = useState(false);
-  const posts = postsData?.entries ?? [];
-  const blockedUsers = blockedData?.entries ?? [];
-  const followedCars = followedCarsData?.entries ?? [];
-  const archivedCars = archivedData?.entries ?? [];
   const { data: transfersData } = useGetCarTransfersQuery();
-  const transfers = transfersData?.entries ?? [];
-  /** Offers made to you and still waiting on your answer. */
-  const transfersWaiting = transfers.filter((t) => t.status === 'pending' && t.direction === 'incoming').length;
   /**
    * The archived list, with cars other people have offered you at the top.
    *
@@ -564,8 +555,21 @@ export default function DashboardScreen({ onClose }: { onClose?: () => void } = 
   const archivedRows = useMemo(() => {
     const incoming = pendingData?.entries ?? [];
     const seen = new Set(incoming.map((c) => c.internal_id));
-    return [...incoming, ...archivedCars.filter((c) => !seen.has(c.internal_id))];
-  }, [pendingData, archivedCars]);
+    return [...incoming, ...(archivedData?.entries ?? []).filter((c) => !seen.has(c.internal_id))];
+  }, [pendingData, archivedData]);
+
+  if (isLoading) return <Spinner fullScreen />;
+  if (!user) return null;
+
+  const cars = garageData?.entries ?? [];
+  const atCarLimit = garageFull(isPro, cars.length);
+  const posts = postsData?.entries ?? [];
+  const blockedUsers = blockedData?.entries ?? [];
+  const followedCars = followedCarsData?.entries ?? [];
+  const archivedCars = archivedData?.entries ?? [];
+  const transfers = transfersData?.entries ?? [];
+  /** Offers made to you and still waiting on your answer. */
+  const transfersWaiting = transfers.filter((t) => t.status === 'pending' && t.direction === 'incoming').length;
   const flaggedPosts = flaggedData?.posts ?? [];
   const flaggedCars = flaggedData?.cars ?? [];
   const flaggedComments = flaggedData?.comments ?? [];

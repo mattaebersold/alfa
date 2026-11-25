@@ -181,6 +181,12 @@ export default function GroupDetailScreen() {
   const c = useColors();
   const brand = useBrandColor();
   const { userInfo } = useAppSelector((s) => s.auth);
+  // Up here with the other hooks, never below the loading return further
+  // down: called after it, the first render (still loading) ran one hook
+  // fewer than the next, and React threw "Rendered more hooks than during the
+  // previous render" opening any group — Pro Drivers first, since that's
+  // where the news check reads it.
+  const isProViewer = useIsPro();
 
   const [carModalOpen, setCarModalOpen] = useState(false);
   // A car opens as a summary rather than a page push — see CarSummaryModal.
@@ -465,7 +471,6 @@ export default function GroupDetailScreen() {
   // admin would see Settings before actually being in the group.
   const isAdmin  = members.some((m) => m.user_id === userInfo?.user_id && m.member_type === 'admin' && m.status === 'active');
   // In Pro Drivers any Pro member can post news (the server allows it too).
-  const isProViewer = useIsPro();
   const canPostNews = isAdmin || (!!group && isProGroup(group) && isProViewer);
   // Oldest first — whoever has waited longest is answered first.
   const pendingRequests = members
